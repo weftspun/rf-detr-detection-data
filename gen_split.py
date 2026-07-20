@@ -63,12 +63,31 @@ def build_rows(modality, split_dir, id_prefix):
     return rows, coco["categories"]
 
 
+# GitHub rejects any single committed file over 100MB (and we're
+# deliberately not using Git LFS) -- shard any split whose raw image bytes
+# alone would exceed a conservative 90MB-per-file budget into multiple
+# numbered parquet files (train-0.parquet, train-1.parquet, ...) instead of
+# one large file. Single-file splits keep their plain name (e.g. test.parquet).
+MAX_SHARD_BYTES = 90_000_000
+
+
 def write_split(rows, out_path):
-    columns = {k: [r[k] for r in rows] for k in rows[0].keys()}
-    table = pa.table(columns)
-    pq.write_table(table, out_path, compression="zstd", compression_level=19)
-    size_mb = os.path.getsize(out_path) / 1e6
-    print(f"wrote {len(rows)} rows -> {out_path} ({size_mb:.1f} MB)")
+    total_bytes = sum(len(r["image_bytes"]) for r in rows)
+    n_shards = max(1, -(-total_bytes // MAX_SHARD_BYTES))  # ceil div
+    shard_size = -(-len(rows) // n_shards)  # ceil div
+
+    base, ext = os.path.splitext(out_path)
+    for i in range(n_shards):
+        lo, hi = i * shard_size, min(len(rows), (i + 1) * shard_size)
+        if lo >= hi:
+            continue
+        shard_rows = rows[lo:hi]
+        columns = {k: [r[k] for r in shard_rows] for k in shard_rows[0].keys()}
+        table = pa.table(columns)
+        shard_path = out_path if n_shards == 1 else f"{base}-{i}{ext}"
+        pq.write_table(table, shard_path, compression="zstd", compression_level=19)
+        size_mb = os.path.getsize(shard_path) / 1e6
+        print(f"wrote {len(shard_rows)} rows -> {shard_path} ({size_mb:.1f} MB)")
 
 
 def main():
