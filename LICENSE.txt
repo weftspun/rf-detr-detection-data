@@ -1,0 +1,10 @@
+Data license: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+
+Source images and annotations: Roboflow Universe project
+"chibifire/clothing-instance-segmentation-1f7c9"
+(https://universe.roboflow.com/chibifire/clothing-instance-segmentation-1f7c9),
+version 2, licensed CC BY 4.0 by its author.
+
+This repository's own additions (gen_split.py, README.md, the Parquet
+packaging) are provided under the same CC BY 4.0 terms as the underlying
+data.
